@@ -7,6 +7,28 @@
 ===============================================================================
 */
 
+/*jshint
+    sub:true, 
+    curly: true,eqeqeq: true,
+    immed: true,
+    latedef: true,
+    newcap: true,
+    noarg: true,
+    sub: true,
+    undef: true,
+    boss: true,
+    eqnull: true,
+    browser: true
+*/
+
+/*globals
+    jQuery: false,
+    require: false,
+    exports: false,
+    define: false,
+    ko: false
+*/
+
 (function (factory) {
     // Module systems magic dance.
 
@@ -31,7 +53,7 @@
     var defaults = {
         registerExtenders: true,
         messagesOnModified: true,
-		errorsAsTitle: true,  			// enables/disables showing of errors as title attribute of the target element.
+        errorsAsTitle: true,            // enables/disables showing of errors as title attribute of the target element.
         errorsAsTitleOnModified: false, // shows the error when hovering the input field (decorateElement must be true)
         messageTemplate: null,
         insertMessages: true,           // automatically inserts validation messages as <span></span>
@@ -131,8 +153,8 @@
                     case 1:
                     case 8:
                         var context = utils.getDomData(node);
-                        if (context) return context;
-                        if (node.parentNode) return utils.contextFor(node.parentNode);
+                        if (context) { return context; }
+                        if (node.parentNode) { return utils.contextFor(node.parentNode); }
                         break;
                 }
                 return undefined;
@@ -147,6 +169,14 @@
                 if (val === "") {
                     return true;
                 }
+            },
+            getOriginalElementTitle: function (element) {
+                var savedOriginalTitle = utils.getAttribute(element, 'data-orig-title'),
+                    currentTitle = element.title,
+                    hasSavedOriginalTitle = utils.hasAttribute(element, 'data-orig-title');
+                
+                return hasSavedOriginalTitle ? 
+                    savedOriginalTitle : currentTitle;
             }
         };
     } ());
@@ -189,7 +219,7 @@
             configure: function (options) { exports.init(options); },
 
             // resets the config back to its original state
-            reset: function () { configuration = $.extend(configuration, defaults); },
+            reset: function () { configuration = jQuery.extend(configuration, defaults); },
 
             // recursivly walks a viewModel and creates an object that
             // provides validation information for the entire viewModel
@@ -199,8 +229,9 @@
             //      observable: false // if true, returns a computed observable indicating if the viewModel is valid
             // }
             group: function group(obj, options) { // array of observables or viewModel
-                var options = ko.utils.extend(configuration.grouping, options),
-                validatables = ko.observableArray([]),
+                options = ko.utils.extend(ko.utils.extend({}, configuration.grouping), options);
+
+                var validatables = ko.observableArray([]),
                 result = null,
 
                 //anonymous, immediate function to traverse objects hierarchically
@@ -216,7 +247,7 @@
                     if (ko.isObservable(obj)) {
 
                         //make sure it is validatable object
-                        if (!obj.isValid) obj.extend({ validatable: true });
+                        if (!obj.isValid) { obj.extend({ validatable: true }); }
                         validatables.push(obj);
                     }
 
@@ -234,7 +265,7 @@
                         ko.utils.arrayForEach(objValues, function (observable) {
 
                             //but not falsy things and not HTML Elements
-                            if (observable && !observable.nodeType) traverse(observable, level + 1);
+                            if (observable && !observable.nodeType) { traverse(observable, level + 1); }
                         });
                     }
                 };
@@ -271,8 +302,9 @@
                 }
 
                 result.showAllMessages = function (show) { // thanks @heliosPortal
-                    if (show == undefined) //default to true
+                    if (show === undefined) {//default to true
                         show = true;
+                    }
 
                     // ensure we have latest changes
                     result();
@@ -304,9 +336,10 @@
             },
 
             formatMessage: function (message, params) {
-                if (typeof (message) === 'function')
+                if (typeof (message) === 'function') {
                     return message(params);
-                return message.replace(/\{0\}/gi, params);
+                }
+                return message.replace(/\{0\}/gi, ko.utils.unwrapObservable(params));
             },
 
             // addRule:
@@ -425,9 +458,9 @@
 
                 var currentType = element.getAttribute('type');
                 ko.utils.arrayForEach(html5InputTypes, function (type) {
-                    if (type == currentType){
+                    if (type === currentType){
                         exports.addRule(valueAccessor(), {
-                            rule: (type == 'date')?'dateISO':type,
+                            rule: (type === 'date')?'dateISO':type,
                             params: true
                         });
                     }
@@ -451,13 +484,14 @@
                         return ctx.rule.toLowerCase() === attr.toLowerCase();
                     });
 
-                    if (!ctx)
+                    if (!ctx) {
                         return;
+                    }
 
                     params = ctx.params;
 
                     // we have to do some special things for the pattern validation
-                    if (ctx.rule == "pattern") {
+                    if (ctx.rule === "pattern") {
                         if (ctx.params instanceof RegExp) {
                             params = ctx.params.source; // we need the pure string representation of the RegExpr without the //gi stuff
                         }
@@ -469,6 +503,18 @@
                 });
 
                 contexts = null;
+            },
+
+            //take an existing binding handler and make it cause automatic validations
+            makeBindingHandlerValidatable: function (handlerName) {
+                var init = ko.bindingHandlers[handlerName].init;
+
+                ko.bindingHandlers[handlerName].init = function (element, valueAccessor, allBindingsAccessor, viewModel, bindingContext) {
+
+                    init(element, valueAccessor, allBindingsAccessor);
+
+                    return ko.bindingHandlers['validationCore'].init(element, valueAccessor, allBindingsAccessor, viewModel, bindingContext);
+                };
             }
         };
     }());
@@ -511,12 +557,13 @@
             }
 
             testVal = val;
-            if (typeof (val) == "string") {
+            if (typeof (val) === "string") {
                 testVal = val.replace(stringTrimRegEx, '');
             }
 
-            if (!required) // if they passed: { required: false }, then don't require this
+            if (!required) {// if they passed: { required: false }, then don't require this
                 return true;
+            }
 
             return ((testVal + '').length > 0);
         },
@@ -553,7 +600,7 @@
 
     validation.rules['pattern'] = {
         validator: function (val, regex) {
-            return utils.isEmptyVal(val) || val.toString().match(regex) != null;
+            return utils.isEmptyVal(val) || val.toString().match(regex) !== null;
         },
         message: 'Please check this value.'
     };
@@ -570,7 +617,7 @@
 
     validation.rules['email'] = {
         validator: function (val, validate) {
-            if (!validate) return true;
+            if (!validate) { return true; }
 
             //I think an empty email address is also a valid entry
             //if one want's to enforce entry it should be done with 'required: true'
@@ -584,7 +631,7 @@
 
     validation.rules['date'] = {
         validator: function (value, validate) {
-            if (!validate) return true;
+            if (!validate) { return true; }
             return utils.isEmptyVal(value) || (validate && !/Invalid|NaN/.test(new Date(value)));
         },
         message: 'Please enter a proper date'
@@ -592,15 +639,15 @@
 
     validation.rules['dateISO'] = {
         validator: function (value, validate) {
-            if (!validate) return true;
-            return utils.isEmptyVal(value) || (validate && /^\d{4}[\/-]\d{1,2}[\/-]\d{1,2}$/.test(value));
+            if (!validate) { return true; }
+            return utils.isEmptyVal(value) || (validate && /^\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}$/.test(value));
         },
         message: 'Please enter a proper date'
     };
 
     validation.rules['number'] = {
         validator: function (value, validate) {
-            if (!validate) return true;
+            if (!validate) { return true; }
             return utils.isEmptyVal(value) || (validate && /^-?(?:\d+|\d{1,3}(?:,\d{3})+)(?:\.\d+)?$/.test(value));
         },
         message: 'Please enter a number'
@@ -608,7 +655,7 @@
 
     validation.rules['digit'] = {
         validator: function (value, validate) {
-            if (!validate) return true;
+            if (!validate) { return true; }
             return utils.isEmptyVal(value) || (validate && /^\d+$/.test(value));
         },
         message: 'Please enter a digit'
@@ -616,7 +663,7 @@
 
     validation.rules['phoneUS'] = {
         validator: function (phoneNumber, validate) {
-            if (!validate) return true;
+            if (!validate) { return true; }
             if (typeof (phoneNumber) !== 'string') { return false; }
             if (utils.isEmptyVal(phoneNumber)) { return true; } // makes it optional, use 'required' rule if it should be required
             phoneNumber = phoneNumber.replace(/\s+/g, "");
@@ -654,10 +701,10 @@
                 external = utils.getValue(options.externalValue),
                 counter = 0;
 
-            if (!val || !c) return true;
+            if (!val || !c) { return true; }
 
             ko.utils.arrayFilter(ko.utils.unwrapObservable(c), function (item) {
-                if (val === (options.valueAccessor ? options.valueAccessor(item) : item)) counter++;
+                if (val === (options.valueAccessor ? options.valueAccessor(item) : item)) { counter++; }
             });
             // if value is external even 1 same value in collection means the value is not unique
             return counter < (external !== undefined && val !== external ? 1 : 2);
@@ -686,7 +733,7 @@
 
                 // parse html5 input validation attributes, optional feature
                 if (config.parseInputAttributes) {
-                    async(function () { exports.parseInputValidationAttributes(element, valueAccessor) });
+                    async(function () { exports.parseInputValidationAttributes(element, valueAccessor); });
                 }
 
                 // if requested insert message element and apply bindings
@@ -722,17 +769,9 @@
 
     }());
 
-    // override for KO's default 'value' binding
-    (function () {
-        var init = ko.bindingHandlers['value'].init;
-
-        ko.bindingHandlers['value'].init = function (element, valueAccessor, allBindingsAccessor, viewModel, bindingContext) {
-
-            init(element, valueAccessor, allBindingsAccessor);
-
-            return ko.bindingHandlers['validationCore'].init(element, valueAccessor, allBindingsAccessor, viewModel, bindingContext);
-        };
-    } ());
+    // override for KO's default 'value' and 'checked' bindings
+    api.makeBindingHandlerValidatable("value");
+    api.makeBindingHandlerValidatable("checked");
 
 
     ko.bindingHandlers['validationMessage'] = { // individual error message, if modified or post binding
@@ -799,18 +838,18 @@
 
             //add or remove class on the element;
             ko.bindingHandlers.css.update(element, cssSettingsAccessor);
-			if (!config.errorsAsTitle) return;
-			
+            if (!config.errorsAsTitle) { return; }
+            
 			var origTitle = utils.getAttribute(element, 'data-orig-title'),
                 elementTitle = element.title,
-                titleIsErrorMsg = utils.getAttribute(element, 'data-orig-title') == "true";
+                titleIsErrorMsg = utils.getAttribute(element, 'data-orig-title') === "true";
 
             var errorMsgTitleAccessor = function () {
                 if (!config.errorsAsTitleOnModified || isModified) {
                     if (!isValid) {
-                        return { title: obsv.error, 'data-orig-title': origTitle || elementTitle };
+                        return { title: obsv.error, 'data-orig-title': utils.getOriginalElementTitle(element) };
                     } else {
-                        return { title: origTitle || elementTitle, 'data-orig-title': null };
+                        return { title: utils.getOriginalElementTitle(element), 'data-orig-title': null };
                     }
                 }
             };
@@ -876,7 +915,7 @@
     ko.extenders['validatable'] = function (observable, enable) {
         if (enable && !utils.isValidatable(observable)) {
 
-            observable.error = null; // holds the error message, we only need one since we stop processing validators when one is invalid
+            observable.error = ko.observable(null); // holds the error message, we only need one since we stop processing validators when one is invalid
 
             // observable.rules:
             // ObservableArray of Rule Contexts, where a Rule Context is simply the name of a rule and the params to supply to it
@@ -944,7 +983,7 @@
         if (!rule.validator(observable(), ctx.params === undefined ? true : ctx.params)) { // default param is true, eg. required = true
 
             //not valid, so format the error message and stick it in the 'error' variable
-            observable.error = exports.formatMessage(ctx.message || rule.message, ctx.params);
+            observable.error(exports.formatMessage(ctx.message || rule.message, ctx.params));
             observable.__valid__(false);
             return false;
         } else {
@@ -977,7 +1016,7 @@
 
             if (!isValid) {
                 //not valid, so format the error message and stick it in the 'error' variable
-                observable.error = exports.formatMessage(msg || ctx.message || rule.message, ctx.params);
+                observable.error(exports.formatMessage(msg || ctx.message || rule.message, ctx.params));
                 observable.__valid__(isValid);
             }
 
@@ -1002,8 +1041,9 @@
             ctx = ruleContexts[i];
 
             // checks an 'onlyIf' condition
-            if (ctx.condition && !ctx.condition())
+            if (ctx.condition && !ctx.condition()) {
                 continue;
+            }
 
             //get the core Rule to use for validation
             rule = exports.rules[ctx.rule];
@@ -1020,7 +1060,7 @@
             }
         }
         //finally if we got this far, make the observable valid again!
-        observable.error = null;
+        observable.error(null);
         observable.__valid__(true);
         return true;
     };

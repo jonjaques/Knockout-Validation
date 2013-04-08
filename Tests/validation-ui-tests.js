@@ -35,6 +35,32 @@ test('hasAttribute works in old IE', function () {
     ok(!ko.validation.utils.hasAttribute(el, 'pattern'), 'element correctly does not have html5 input attribute');
 });
 
+test("checked binding sets error class on radio buttons", function() {
+    addTestHtml("<input id='testInput1' type='radio' name='group' value='one' data-bind='checked: result' />" +
+        "<input id='testInput2' type='radio' name='group' value='two' data-bind='checked: result' />" +
+        "<input id='testInput3' type='radio' name='group' value='three' data-bind='checked: result' />");
+
+    var $input = $("#testInput2"),
+        vm = {
+            result: ko.observable("").extend({ required: true })
+        };
+    ko.validation.init({ decorateElement: true }, true);
+
+    vm.result.isModified(true); //fake a modification
+    
+    applyTestBindings(vm);
+
+    ok(!vm.result.isValid(), "Should initially be invalid");
+    ok($input.hasClass("validationElement"), "Validation class should have been added");
+
+    $input.prop("checked", true);
+    $input.click(); //trigger the validation
+
+    equal(vm.result(), "two", "Value should have changed");
+    ok(vm.result.isValid(), "Should now be valid");
+    ok(!$input.hasClass("validationElement"), "Validation class should have been removed");
+});
+
 //#region Inserting Messages
 
 test('Inserting Messages Works', function () {
@@ -135,6 +161,40 @@ test('Original titles are restored', function () {
     equal(msg, 'my-orig-title', msg);
 
 });
+
+test("Original titles are restored to blank", function () {
+        addTestHtml('<input id="myTestInput" data-bind="value: firstName" type="text" />');
+
+    var vm = {
+        firstName: ko.observable('').extend({ required: true })
+    };
+
+    // make sure the options are ok.
+    ko.validation.init({
+        errorsAsTitleOnModified: true,
+        decorateElement: true
+    }, true);
+
+    applyTestBindings(vm);
+
+    var $testInput = $('#myTestInput');
+
+    $testInput.val("a"); //set it 
+    $testInput.change(); //trigger change event
+
+    $testInput.val(""); //set it 
+    $testInput.change(); //trigger change event
+
+    ok(!vm.firstName.isValid(), 'First Name is NOT Valid');
+
+    //now make the name valid
+    vm.firstName("valid name");
+    ok(vm.firstName.isValid(), "Should now be valid");
+
+    //and check that the title was reset to blank
+    var updatedTitle = $testInput.attr("title")
+    ok(!updatedTitle, "Title should have been reset to blank");
+})
 
 test('Original titles are restored with multiple validators, too', function () {
 
@@ -342,13 +402,13 @@ test("Issue #43 & #47 - Error messages are not switched correctly", function () 
 
     vm.testObj(-1); // should invalidate the min rule
 
-    ok(!vm.testObj.isValid(), vm.testObj.error);
-    equal(vm.testObj.error, $msg.text(), "Min rule was correctly triggered");
+    ok(!vm.testObj.isValid(), vm.testObj.error());
+    equal(vm.testObj.error(), $msg.text(), "Min rule was correctly triggered");
 
     vm.testObj(101); // should invalidate the max rule
 
-    ok(!vm.testObj.isValid(), vm.testObj.error);
-    equal(vm.testObj.error, $msg.text(), "Max rule was correctly triggered");
+    ok(!vm.testObj.isValid(), vm.testObj.error());
+    equal(vm.testObj.error(), $msg.text(), "Max rule was correctly triggered");
 });
 
 test("Issue #44 - Validation Element - Is Valid Test", function () {
